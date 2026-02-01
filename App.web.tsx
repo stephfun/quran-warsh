@@ -486,11 +486,18 @@ const QuranPageWeb: React.FC<{ page: Page; pageNumber: number; isDark: boolean; 
   const frameColor = isDark ? '#1E5631' : '#2D5A3D';
   const frameLightColor = isDark ? '#2E8B57' : '#3CB371';
 
+  // Pages 1-2 ont un layout spécial (Al-Fatiha et début Al-Baqara)
+  const isSpecialPage = pageNumber === 1 || pageNumber === 2;
+
   // Taille de police adaptative pour remplir la page
-  const fontSize = getFontSizeForWords(page.total_words);
+  // Pages 1-2: police grande (ornement + basmala + 6 lignes de texte)
+  const fontSize = isSpecialPage
+    ? 'clamp(22px, 5vw, 36px)'
+    : getFontSizeForWords(page.total_words);
 
   // Line-height adaptative
-  const lineHeight = getLineHeightForWords(page.total_words);
+  // Pages 1-2: espacement pour que tout rentre
+  const lineHeight = isSpecialPage ? 1.8 : getLineHeightForWords(page.total_words);
 
   return (
     <div
@@ -579,11 +586,169 @@ const QuranPageWeb: React.FC<{ page: Page; pageNumber: number; isDark: boolean; 
               display: 'flex',
               flexDirection: 'column',
               flex: 1,
-              justifyContent: 'space-around',
+              justifyContent: isSpecialPage ? 'space-evenly' : 'space-around',
               direction: 'rtl',
+              gap: isSpecialPage ? '0' : '0',
             }}
           >
-            {page.lines?.map((line: { line: number; content: Array<{ text?: string; index?: number; type?: string; aya?: number; sura_name_ar?: string; sura_no?: number; verses_count?: number }> }) => {
+            {(() => {
+              // Pour pages 1-2: combiner en 6 lignes de texte seulement
+              if (isSpecialPage) {
+                // Extraire ornement, basmala et tout le contenu texte
+                let surahStartData: { sura_name_ar?: string; sura_no?: number; verses_count?: number } | null = null;
+                let hasBasmala = false;
+                const allTextContent: Array<{ text?: string; index?: number; type?: string; aya?: number; sura?: number }> = [];
+
+                page.lines?.forEach((line: { content: Array<{ text?: string; index?: number; type?: string; aya?: number; sura?: number; sura_name_ar?: string; sura_no?: number; verses_count?: number }> }) => {
+                  line.content.forEach(item => {
+                    if (item.type === 'surah_start') {
+                      surahStartData = item;
+                    } else if (item.type === 'basmala') {
+                      hasBasmala = true;
+                    } else {
+                      allTextContent.push(item);
+                    }
+                  });
+                });
+
+                // Diviser en 6 lignes
+                const LINES_COUNT = 6;
+                const itemsPerLine = Math.ceil(allTextContent.length / LINES_COUNT);
+                const combinedLines: Array<Array<{ text?: string; index?: number; type?: string; aya?: number; sura?: number }>> = [];
+                for (let i = 0; i < LINES_COUNT; i++) {
+                  const start = i * itemsPerLine;
+                  const end = Math.min(start + itemsPerLine, allTextContent.length);
+                  if (start < allTextContent.length) {
+                    combinedLines.push(allTextContent.slice(start, end));
+                  }
+                }
+
+                return (
+                  <>
+                    {/* Ornement sourate */}
+                    {surahStartData && (
+                      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '0 4px' }}>
+                        <SurahOrnament
+                          isDark={isDark}
+                          surahName={surahStartData.sura_name_ar || ''}
+                          surahNo={surahStartData.sura_no || 0}
+                          versesCount={surahStartData.verses_count || 0}
+                        />
+                      </div>
+                    )}
+                    {/* Basmala */}
+                    {hasBasmala && (
+                      <div style={{
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        padding: '4px 4px',
+                        fontFamily: 'KFGQPC-Warsh, Traditional Arabic, serif',
+                        fontSize: fontSize,
+                        color: textColor,
+                      }}>
+                        بِسْمِ ٱللَّهِ ٱلرَّحْمَٰنِ ٱلرَّحِيمِ
+                      </div>
+                    )}
+                    {/* 6 lignes de texte */}
+                    {combinedLines.map((lineItems, lineIdx) => (
+                      <div
+                        key={lineIdx}
+                        style={{
+                          fontFamily: 'KFGQPC-Warsh, Traditional Arabic, serif',
+                          fontSize: fontSize,
+                          lineHeight: lineHeight,
+                          color: textColor,
+                          display: 'flex',
+                          flexDirection: 'row',
+                          flexWrap: 'nowrap',
+                          justifyContent: 'center',
+                          alignItems: 'center',
+                          paddingLeft: 4,
+                          paddingRight: 4,
+                          width: '100%',
+                          gap: '6px',
+                        }}
+                      >
+                        {lineItems.map((item, idx) =>
+                          item.type === 'verse_end' ? (
+                            isThoumnMarker(item.sura || 0, item.aya || 0) ? (
+                              <span
+                                key={`end-${item.aya}-${idx}`}
+                                style={{
+                                  display: 'inline-flex',
+                                  alignItems: 'center',
+                                  justifyContent: 'center',
+                                  position: 'relative',
+                                  width: 28,
+                                  height: 24,
+                                  margin: '0 2px',
+                                  flexShrink: 0,
+                                }}
+                              >
+                                <svg width="28" height="24" viewBox="0 0 28 24" style={{ position: 'absolute', top: 0, left: 0 }}>
+                                  <defs>
+                                    <linearGradient id={`thoumnGradS-${lineIdx}-${idx}`} x1="0%" y1="0%" x2="100%" y2="100%">
+                                      <stop offset="0%" stopColor={isDark ? '#2E8B57' : '#1E5631'} />
+                                      <stop offset="100%" stopColor={isDark ? '#1E5631' : '#0D3320'} />
+                                    </linearGradient>
+                                  </defs>
+                                  <path d="M14,0 L16,5 L14,8 L12,5 Z" fill={`url(#thoumnGradS-${lineIdx}-${idx})`} />
+                                  <path d="M14,24 L16,19 L14,16 L12,19 Z" fill={`url(#thoumnGradS-${lineIdx}-${idx})`} />
+                                  <path d="M0,12 L5,10 L8,12 L5,14 Z" fill={`url(#thoumnGradS-${lineIdx}-${idx})`} />
+                                  <path d="M28,12 L23,10 L20,12 L23,14 Z" fill={`url(#thoumnGradS-${lineIdx}-${idx})`} />
+                                  <ellipse cx="14" cy="12" rx="8" ry="6" fill={isDark ? '#1A1A1A' : '#FDFBF7'} stroke={`url(#thoumnGradS-${lineIdx}-${idx})`} strokeWidth="2" />
+                                </svg>
+                                <span style={{
+                                  position: 'relative',
+                                  zIndex: 1,
+                                  fontFamily: '-apple-system, BlinkMacSystemFont, sans-serif',
+                                  fontSize: 8,
+                                  fontWeight: 800,
+                                  color: isDark ? '#2E8B57' : '#1E5631',
+                                  lineHeight: 1,
+                                }}>
+                                  {item.aya || 0}
+                                </span>
+                              </span>
+                            ) : (
+                              <span
+                                key={`end-${item.aya}-${idx}`}
+                                style={{
+                                  display: 'inline-flex',
+                                  alignItems: 'center',
+                                  justifyContent: 'center',
+                                  width: 18,
+                                  height: 18,
+                                  margin: '0 2px',
+                                  fontFamily: '-apple-system, BlinkMacSystemFont, sans-serif',
+                                  fontSize: 8,
+                                  fontWeight: 700,
+                                  color: '#12D084',
+                                  backgroundColor: accentLight,
+                                  border: '1.5px solid #12D084',
+                                  borderRadius: '50%',
+                                  flexShrink: 0,
+                                  lineHeight: 1,
+                                }}
+                              >
+                                {item.aya || 0}
+                              </span>
+                            )
+                          ) : (
+                            <span key={item.index ?? `word-${idx}`} style={{ cursor: 'pointer', whiteSpace: 'nowrap' }}>
+                              {item.text}
+                            </span>
+                          )
+                        )}
+                      </div>
+                    ))}
+                  </>
+                );
+              }
+
+              // Pages normales: rendu standard ligne par ligne
+              return page.lines?.map((line: { line: number; content: Array<{ text?: string; index?: number; type?: string; aya?: number; sura?: number; sura_name_ar?: string; sura_no?: number; verses_count?: number }> }) => {
               // Check if this line contains a surah_start
               const surahStart = line.content.find(item => item.type === 'surah_start');
               // Check if this line contains a basmala
@@ -615,7 +780,7 @@ const QuranPageWeb: React.FC<{ page: Page; pageNumber: number; isDark: boolean; 
                 );
               }
 
-              // Si la ligne contient une basmala, l'afficher avec style Othmani (même taille que texte normal)
+              // Si la ligne contient une basmala, l'afficher avec style Othmani
               if (basmala) {
                 return (
                   <div
@@ -639,21 +804,8 @@ const QuranPageWeb: React.FC<{ page: Page; pageNumber: number; isDark: boolean; 
               }
 
               // Ligne normale avec texte coranique
-              // Pages 1 et 2 (Al-Fatiha) : centré avec espacement étalé (space-around)
-              // Autres pages : space-between pour remplir, ou center si peu d'éléments
-              const isSpecialPage = pageNumber <= 2;
               const shouldCenter = lineContent.length <= 2;
-
-              // Pour pages 1-2: space-around pour étaler le texte centré
-              // Pour autres: space-between (ou center si peu d'éléments)
-              let justifyStyle: string;
-              if (isSpecialPage) {
-                justifyStyle = 'space-around';
-              } else if (shouldCenter) {
-                justifyStyle = 'center';
-              } else {
-                justifyStyle = 'space-between';
-              }
+              const justifyStyle = shouldCenter ? 'center' : 'space-between';
 
               return (
                 <div
@@ -661,6 +813,7 @@ const QuranPageWeb: React.FC<{ page: Page; pageNumber: number; isDark: boolean; 
                   style={{
                     fontFamily: 'KFGQPC-Warsh, Traditional Arabic, serif',
                     fontSize: 'clamp(16px, 2.5vw, 24px)',
+                    lineHeight: lineHeight,
                     color: textColor,
                     display: 'flex',
                     flexDirection: 'row',
@@ -671,10 +824,10 @@ const QuranPageWeb: React.FC<{ page: Page; pageNumber: number; isDark: boolean; 
                     minHeight: 0,
                     maxHeight: `${100 / (page.total_lines || 15)}%`,
                     overflow: 'hidden',
-                    paddingLeft: isSpecialPage ? 20 : 4,
-                    paddingRight: isSpecialPage ? 20 : 4,
+                    paddingLeft: 4,
+                    paddingRight: 4,
                     width: '100%',
-                    gap: shouldCenter && !isSpecialPage ? '8px' : '0',
+                    gap: shouldCenter ? '8px' : '0',
                   }}
                 >
                   {lineContent.map((item, idx) =>
@@ -765,7 +918,8 @@ const QuranPageWeb: React.FC<{ page: Page; pageNumber: number; isDark: boolean; 
                   )}
                 </div>
               );
-            })}
+            });
+            })()}
           </div>
         </div>
 
@@ -1239,7 +1393,7 @@ function App() {
                         {surah.name_ar}
                       </div>
                       <div style={{ fontSize: 11, color: isDark ? '#A0A0A0' : '#666' }}>
-                        {surah.name_en} • {surah.verses} آيات • {surah.type}
+                        {surah.name_en} • {surah.type} • {surah.verses} آيات
                       </div>
                     </div>
                   </div>
