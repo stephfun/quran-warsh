@@ -529,11 +529,11 @@ test('Ma fonctionnalité', async ({ page }) => {
 
 ---
 
-## REFACTORING EN COURS (01/02/2026)
+## REFACTORING TERMINÉ ✅ (01/02/2026)
 
-### Objectif : Support multi-riwaya (Warsh + Hafs)
+### Support multi-riwaya (Warsh + Hafs)
 
-#### Fichier créé : `src/config/riwayaConfig.ts`
+#### Fichier de configuration : `src/config/riwayaConfig.ts`
 
 Centralise toutes les valeurs spécifiques à chaque riwaya :
 
@@ -542,40 +542,58 @@ interface RiwayaConfig {
   id: 'warsh' | 'hafs';
   name: string;
   nameAr: string;
-  totalPages: number;           // 604 Warsh, variable Hafs
-  linesPerPage: number;         // 15
-  specialPages: number[];       // [1, 2] pour Al-Fatiha
+  totalPages: number;            // 604 Warsh, variable Hafs
+  linesPerPage: number;          // 15
+  specialPages: number[];        // [1, 2] pour Al-Fatiha
   specialPagesLineCount: number; // 6 lignes de texte
-  fontFamily: string;           // KFGQPC-Warsh ou KFGQPC-Hafs
-  thoumnMarkers: Set<string>;   // 434 marqueurs Warsh
-  hizbStartPages: number[];     // 60 valeurs par riwaya
-  accentColor: string;          // #12D084
+  fontFamily: string;            // KFGQPC-Warsh ou KFGQPC-Hafs
+  fontCdn: string;               // URL CDN de la police
+  thoumnMarkers: Set<string>;    // 434 marqueurs Warsh
+  hizbStartPages: number[];      // 60 valeurs par riwaya
+  accentColor: string;           // #12D084
+  accentColorLight: string;      // #E8FBF3
+  accentColorLightDark: string;  // #1E3D2F (mode sombre)
+  accentColorDark: string;       // #0BA968
   supportsTajweedColors: boolean; // true pour Hafs
 }
 ```
 
-#### Modifications dans App.web.tsx
+#### Fonctions exportées
 
-Remplacer les valeurs hardcodées par `riwayaConfig.*` :
+| Fonction | Description |
+|----------|-------------|
+| `getRiwayaConfig(riwaya)` | Retourne la config pour une riwaya |
+| `isThoumnMarker(sura, aya)` | Vérifie si un verset est un marqueur Thoumn |
+| `getQuranPosition(page)` | Calcule Juz/Hizb/Thoumn pour une page |
+| `hexToRgba(hex, alpha)` | Convertit hex en rgba (pour gradients) |
 
-| Avant | Après |
-|-------|-------|
-| `KFGQPC-Warsh, Traditional Arabic, serif` | `riwayaConfig.fontFamily` |
-| `pageNumber === 1 \|\| pageNumber === 2` | `riwayaConfig.specialPages.includes(pageNumber)` |
-| `LINES_COUNT = 6` | `riwayaConfig.specialPagesLineCount` |
-| `page.total_lines \|\| 15` | `page.total_lines \|\| riwayaConfig.linesPerPage` |
-| `THOUMN_MARKERS_WARSH` | `isThoumnMarker(sura, aya)` (importé) |
-| `getQuranPosition(page)` | `getQuranPosition(page, CURRENT_RIWAYA)` (importé) |
+#### Changement de riwaya
 
-#### État du refactoring
+Pour passer de Warsh à Hafs :
 
-- [x] Fichier `riwayaConfig.ts` créé avec config Warsh complète
-- [x] Import ajouté dans App.web.tsx
-- [x] `fontFamily` → `riwayaConfig.fontFamily` (7 occurrences)
-- [x] `isSpecialPage` → utilise `riwayaConfig.specialPages`
-- [x] `LINES_COUNT` → `riwayaConfig.specialPagesLineCount`
-- [x] `total_lines || 15` → `riwayaConfig.linesPerPage` (3 occurrences)
-- [ ] Build et test à faire
+```typescript
+// App.web.tsx ligne 24
+const CURRENT_RIWAYA: RiwayaType = 'hafs'; // au lieu de 'warsh'
+
+// Charger les données correspondantes
+import { PAGES, SURAHS } from './src/data/quranData_hafs'; // à créer
+```
+
+#### Éléments refactorisés ✅
+
+| Élément | Valeur dynamique |
+|---------|------------------|
+| Police | `riwayaConfig.fontFamily` |
+| Pages spéciales | `riwayaConfig.specialPages.includes(pageNumber)` |
+| Lignes pages spéciales | `riwayaConfig.specialPagesLineCount` |
+| Lignes par page | `riwayaConfig.linesPerPage` |
+| Marqueurs Thoumn | `isThoumnMarker(sura, aya)` |
+| Position Juz/Hizb | `getQuranPosition(page)` |
+| Couleur accent | `riwayaConfig.accentColor` |
+| Couleur accent claire | `riwayaConfig.accentColorLight` |
+| Couleur accent sombre | `riwayaConfig.accentColorDark` |
+| Animation CSS pulse | `hexToRgba(riwayaConfig.accentColor, 0.4)` |
+| Gradients menu | `hexToRgba(riwayaConfig.accentColor, 0.1)` |
 
 ---
 
@@ -631,7 +649,9 @@ Remplacer les valeurs hardcodées par `riwayaConfig.*` :
 
 ## Commits récents
 
+- `67e0312` - Refactor: centralize colors and config for multi-riwaya support
 - `b1755ca` - Feat(pages): special layout for pages 1-2 with 6 lines of text
-- `d32841f` - Initial commit - Quran Warsh App
+- `722b79e` - Feat(quran-app): add 434 Thoumn markers from KFGQPC Warsh data
+- `f97e067` - Fix(quran-app): verse numbers centering, wooden frame style
 
 GitHub: https://github.com/stephfun/quran-warsh.git
