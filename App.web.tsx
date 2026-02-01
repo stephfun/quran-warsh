@@ -225,11 +225,12 @@ const getLineHeightForWords = (wordCount: number): number => {
 };
 
 // Ornement décoratif islamique pour les headers de sourate (style Mushaf traditionnel)
-const SurahOrnament: React.FC<{ isDark: boolean; surahName: string; surahNo: number; versesCount: number }> = ({
+const SurahOrnament: React.FC<{ isDark: boolean; surahName: string; surahNo: number; versesCount: number; fontFamily: string }> = ({
   isDark,
   surahName,
   surahNo,
   versesCount,
+  fontFamily,
 }) => {
   const strokeColor = isDark ? '#A0A0A0' : '#1A1A1A';
   const fillColor = isDark ? '#2A2A2A' : '#FFFFFF';
@@ -287,7 +288,7 @@ const SurahOrnament: React.FC<{ isDark: boolean; surahName: string; surahNo: num
         {/* Texte sourate */}
         <text x="200" y="30" textAnchor="middle"
           style={{
-            fontFamily: riwayaConfig.fontFamily,
+            fontFamily: fontFamily,
             fontSize: 16,
             fill: textColor,
             fontWeight: 600,
@@ -336,16 +337,23 @@ const CornerOrnament: React.FC<{ position: 'top-left' | 'top-right' | 'bottom-le
 };
 
 // Composant Page Quran pour le web
-const QuranPageWeb: React.FC<{ page: Page; pageNumber: number; isDark: boolean; isFirstPageOfSurah: boolean }> = ({
+const QuranPageWeb: React.FC<{
+  page: Page;
+  pageNumber: number;
+  isDark: boolean;
+  isFirstPageOfSurah: boolean;
+  config: typeof riwayaConfig; // Config de la riwaya active
+}> = ({
   page,
   pageNumber,
   isDark,
   isFirstPageOfSurah,
+  config,
 }) => {
   const bgColor = isDark ? '#1A1A1A' : '#FDFBF7';
   const textColor = isDark ? '#F0EDE8' : '#1A1614';
   const borderColor = isDark ? '#333' : '#E8E4DD';
-  const accentLight = isDark ? riwayaConfig.accentColorLightDark : riwayaConfig.accentColorLight;
+  const accentLight = isDark ? config.accentColorLightDark : config.accentColorLight;
 
   // Couleur du cadre ornemental (vert foncé style bois peint)
   const frameColor = isDark ? '#1E5631' : '#2D5A3D';
@@ -353,7 +361,7 @@ const QuranPageWeb: React.FC<{ page: Page; pageNumber: number; isDark: boolean; 
 
   // Pages 1-2 ont un layout spécial (Al-Fatiha et début Al-Baqara)
   // Pages spéciales définies dans la config (ex: pages 1-2 pour Al-Fatiha)
-  const isSpecialPage = riwayaConfig.specialPages.includes(pageNumber);
+  const isSpecialPage = config.specialPages.includes(pageNumber);
 
   // Taille de police adaptative pour remplir la page
   // Pages 1-2: police grande (ornement + basmala + 6 lignes de texte)
@@ -478,7 +486,7 @@ const QuranPageWeb: React.FC<{ page: Page; pageNumber: number; isDark: boolean; 
                 });
 
                 // Diviser en 6 lignes
-                const LINES_COUNT = riwayaConfig.specialPagesLineCount;
+                const LINES_COUNT = config.specialPagesLineCount;
                 const itemsPerLine = Math.ceil(allTextContent.length / LINES_COUNT);
                 const combinedLines: Array<Array<{ text?: string; index?: number; type?: string; aya?: number; sura?: number }>> = [];
                 for (let i = 0; i < LINES_COUNT; i++) {
@@ -499,6 +507,7 @@ const QuranPageWeb: React.FC<{ page: Page; pageNumber: number; isDark: boolean; 
                           surahName={surahStartData.sura_name_ar || ''}
                           surahNo={surahStartData.sura_no || 0}
                           versesCount={surahStartData.verses_count || 0}
+                          fontFamily={config.fontFamily}
                         />
                       </div>
                     )}
@@ -509,7 +518,7 @@ const QuranPageWeb: React.FC<{ page: Page; pageNumber: number; isDark: boolean; 
                         alignItems: 'center',
                         justifyContent: 'center',
                         padding: '4px 4px',
-                        fontFamily: riwayaConfig.fontFamily,
+                        fontFamily: config.fontFamily,
                         fontSize: fontSize,
                         color: textColor,
                       }}>
@@ -521,7 +530,7 @@ const QuranPageWeb: React.FC<{ page: Page; pageNumber: number; isDark: boolean; 
                       <div
                         key={lineIdx}
                         style={{
-                          fontFamily: riwayaConfig.fontFamily,
+                          fontFamily: config.fontFamily,
                           fontSize: fontSize,
                           lineHeight: lineHeight,
                           color: textColor,
@@ -590,9 +599,9 @@ const QuranPageWeb: React.FC<{ page: Page; pageNumber: number; isDark: boolean; 
                                   fontFamily: '-apple-system, BlinkMacSystemFont, sans-serif',
                                   fontSize: 8,
                                   fontWeight: 700,
-                                  color: riwayaConfig.accentColor,
+                                  color: config.accentColor,
                                   backgroundColor: accentLight,
-                                  border: `1.5px solid ${riwayaConfig.accentColor}`,
+                                  border: `1.5px solid ${config.accentColor}`,
                                   borderRadius: '50%',
                                   flexShrink: 0,
                                   lineHeight: 1,
@@ -629,7 +638,7 @@ const QuranPageWeb: React.FC<{ page: Page; pageNumber: number; isDark: boolean; 
                     style={{
                       flex: 1,
                       minHeight: 0,
-                      maxHeight: `${100 / (page.total_lines || riwayaConfig.linesPerPage)}%`,
+                      maxHeight: `${100 / (page.total_lines || config.linesPerPage)}%`,
                       display: 'flex',
                       alignItems: 'center',
                       justifyContent: 'center',
@@ -641,6 +650,7 @@ const QuranPageWeb: React.FC<{ page: Page; pageNumber: number; isDark: boolean; 
                       surahName={surahStart.sura_name_ar || ''}
                       surahNo={surahStart.sura_no || 0}
                       versesCount={surahStart.verses_count || 0}
+                      fontFamily={config.fontFamily}
                     />
                   </div>
                 );
@@ -654,12 +664,12 @@ const QuranPageWeb: React.FC<{ page: Page; pageNumber: number; isDark: boolean; 
                     style={{
                       flex: 1,
                       minHeight: 0,
-                      maxHeight: `${100 / (page.total_lines || riwayaConfig.linesPerPage)}%`,
+                      maxHeight: `${100 / (page.total_lines || config.linesPerPage)}%`,
                       display: 'flex',
                       alignItems: 'center',
                       justifyContent: 'center',
                       padding: '0 4px',
-                      fontFamily: riwayaConfig.fontFamily,
+                      fontFamily: config.fontFamily,
                       fontSize: 'clamp(16px, 2.5vw, 24px)',
                       color: textColor,
                     }}
@@ -677,7 +687,7 @@ const QuranPageWeb: React.FC<{ page: Page; pageNumber: number; isDark: boolean; 
                 <div
                   key={line.line}
                   style={{
-                    fontFamily: riwayaConfig.fontFamily,
+                    fontFamily: config.fontFamily,
                     fontSize: 'clamp(16px, 2.5vw, 24px)',
                     lineHeight: lineHeight,
                     color: textColor,
@@ -688,7 +698,7 @@ const QuranPageWeb: React.FC<{ page: Page; pageNumber: number; isDark: boolean; 
                     alignItems: 'center',
                     flex: 1,
                     minHeight: 0,
-                    maxHeight: `${100 / (page.total_lines || riwayaConfig.linesPerPage)}%`,
+                    maxHeight: `${100 / (page.total_lines || config.linesPerPage)}%`,
                     overflow: 'hidden',
                     paddingLeft: 4,
                     paddingRight: 4,
@@ -761,9 +771,9 @@ const QuranPageWeb: React.FC<{ page: Page; pageNumber: number; isDark: boolean; 
                             fontFamily: '-apple-system, BlinkMacSystemFont, sans-serif',
                             fontSize: 9,
                             fontWeight: 700,
-                            color: riwayaConfig.accentColor,
+                            color: config.accentColor,
                             backgroundColor: accentLight,
-                            border: `1.5px solid ${riwayaConfig.accentColor}`,
+                            border: `1.5px solid ${config.accentColor}`,
                             borderRadius: '50%',
                             flexShrink: 0,
                             lineHeight: 1,
@@ -815,9 +825,14 @@ function App() {
   const [currentPage, setCurrentPage] = useState(0);
   const [theme, setTheme] = useState<ThemeMode>('light');
   const [menuVisible, setMenuVisible] = useState(false);
+  const [settingsVisible, setSettingsVisible] = useState(false);
+  const [currentRiwaya, setCurrentRiwaya] = useState<RiwayaType>(DEFAULT_RIWAYA);
   const [hiddenMode, setHiddenMode] = useState(false);
   const swiperRef = useRef<SwiperType | null>(null);
   const menuListRef = useRef<HTMLDivElement | null>(null);
+
+  // Config dynamique basée sur la riwaya sélectionnée
+  const activeConfig = getRiwayaConfig(currentRiwaya);
 
   // Inject CSS animations on mount
   useEffect(() => {
@@ -953,22 +968,22 @@ function App() {
             fontSize: 18,
             color: textColor,
             fontWeight: 500,
-            fontFamily: riwayaConfig.fontFamily,
+            fontFamily: activeConfig.fontFamily,
           }}>
             {pageData?.sura?.name_ar || 'الفَاتِحَة'}
           </div>
           <div style={{ fontSize: 10, color: isDark ? '#A0A0A0' : '#666', direction: 'rtl' }}>
             {(() => {
-              const pos = getQuranPosition(currentPage + 1);
+              const pos = getQuranPosition(currentPage + 1, currentRiwaya);
               return `الجزء ${pos.juz} | الحزب ${pos.hizb} | الثمن ${pos.thoumn}`;
             })()}
           </div>
         </div>
 
-        {/* In RTL: Theme toggle on LEFT (last in JSX) */}
+        {/* In RTL: Settings button on LEFT (last in JSX) */}
         <button
           className="btn-modern btn-icon"
-          onClick={toggleTheme}
+          onClick={() => setSettingsVisible(true)}
           style={{
             width: 40,
             height: 40,
@@ -982,7 +997,7 @@ function App() {
             color: textColor,
           }}
         >
-          {isDark ? <MoonIcon size={20} color={textColor} /> : <SunIcon size={20} color={textColor} />}
+          <SettingsIcon size={20} color={textColor} />
         </button>
       </div>
 
@@ -1012,6 +1027,7 @@ function App() {
                   pageNumber={index + 1}
                   isDark={isDark}
                   isFirstPageOfSurah={isFirstPageOfSurah}
+                  config={activeConfig}
                 />
               </SwiperSlide>
             );
@@ -1081,8 +1097,8 @@ function App() {
               width: 40,
               height: 40,
               borderRadius: 10,
-              backgroundColor: hiddenMode ? riwayaConfig.accentColor : (isDark ? 'rgba(255,255,255,0.1)' : 'rgba(0,0,0,0.05)'),
-              border: hiddenMode ? `2px solid ${riwayaConfig.accentColorDark}` : 'none',
+              backgroundColor: hiddenMode ? activeConfig.accentColor : (isDark ? 'rgba(255,255,255,0.1)' : 'rgba(0,0,0,0.05)'),
+              border: hiddenMode ? `2px solid ${activeConfig.accentColorDark}` : 'none',
               cursor: 'pointer',
               display: 'flex',
               alignItems: 'center',
@@ -1119,7 +1135,7 @@ function App() {
           <span style={{
             fontSize: 13,
             color: isDark ? '#A0A0A0' : '#666',
-            fontFamily: riwayaConfig.fontFamily,
+            fontFamily: activeConfig.fontFamily,
             marginLeft: 8,
           }}>
             عبد الباسط
@@ -1133,13 +1149,13 @@ function App() {
             width: 52,
             height: 52,
             borderRadius: 26,
-            background: `linear-gradient(135deg, ${riwayaConfig.accentColor} 0%, ${riwayaConfig.accentColorDark} 100%)`,
+            background: `linear-gradient(135deg, ${activeConfig.accentColor} 0%, ${activeConfig.accentColorDark} 100%)`,
             border: 'none',
             cursor: 'pointer',
             display: 'flex',
             alignItems: 'center',
             justifyContent: 'center',
-            boxShadow: `0 4px 15px ${riwayaConfig.accentColor}66`,
+            boxShadow: `0 4px 15px ${activeConfig.accentColor}66`,
           }}
           title="Lancer la récitation"
         >
@@ -1186,13 +1202,13 @@ function App() {
                 padding: '16px 20px',
                 borderBottom: `1px solid ${borderColor}`,
                 background: isDark
-                  ? `linear-gradient(135deg, ${hexToRgba(riwayaConfig.accentColor, 0.1)} 0%, transparent 100%)`
-                  : `linear-gradient(135deg, ${hexToRgba(riwayaConfig.accentColor, 0.08)} 0%, transparent 100%)`,
+                  ? `linear-gradient(135deg, ${hexToRgba(activeConfig.accentColor, 0.1)} 0%, transparent 100%)`
+                  : `linear-gradient(135deg, ${hexToRgba(activeConfig.accentColor, 0.08)} 0%, transparent 100%)`,
               }}
             >
               <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-                <BookOpenIcon size={22} color={riwayaConfig.accentColor} />
-                <span style={{ fontSize: 18, color: riwayaConfig.accentColor, fontWeight: 600 }}>السور</span>
+                <BookOpenIcon size={22} color={activeConfig.accentColor} />
+                <span style={{ fontSize: 18, color: activeConfig.accentColor, fontWeight: 600 }}>السور</span>
               </div>
               <button
                 className="btn-modern btn-icon"
@@ -1227,7 +1243,7 @@ function App() {
                       borderBottom: `1px solid ${isDark ? '#333' : '#EEE'}`,
                       cursor: 'pointer',
                       backgroundColor: isCurrentSurah
-                        ? (isDark ? riwayaConfig.accentColorLightDark : riwayaConfig.accentColorLight)
+                        ? (isDark ? activeConfig.accentColorLightDark : activeConfig.accentColorLight)
                         : 'transparent',
                     }}
                   >
@@ -1237,15 +1253,15 @@ function App() {
                         height: 32,
                         borderRadius: 16,
                         backgroundColor: isCurrentSurah
-                          ? riwayaConfig.accentColor
-                          : (isDark ? riwayaConfig.accentColorLightDark : riwayaConfig.accentColorLight),
+                          ? activeConfig.accentColor
+                          : (isDark ? activeConfig.accentColorLightDark : activeConfig.accentColorLight),
                         display: 'flex',
                         alignItems: 'center',
                         justifyContent: 'center',
                         marginLeft: 12,
                         fontSize: 12,
                         fontWeight: 600,
-                        color: isCurrentSurah ? '#FFFFFF' : riwayaConfig.accentColor,
+                        color: isCurrentSurah ? '#FFFFFF' : activeConfig.accentColor,
                       }}
                     >
                       {surah.no}
@@ -1253,7 +1269,7 @@ function App() {
                     <div style={{ flex: 1 }}>
                       <div style={{
                         fontSize: 16,
-                        color: isCurrentSurah ? riwayaConfig.accentColor : textColor,
+                        color: isCurrentSurah ? activeConfig.accentColor : textColor,
                         fontWeight: isCurrentSurah ? 600 : 400,
                       }}>
                         {surah.name_ar}
@@ -1266,6 +1282,244 @@ function App() {
                 );
               })}
             </div>
+        </div>
+      </div>
+
+      {/* Settings Modal */}
+      <div
+        style={{
+          position: 'fixed',
+          top: 0,
+          left: 0,
+          right: 0,
+          bottom: 0,
+          backgroundColor: settingsVisible ? 'rgba(0,0,0,0.5)' : 'rgba(0,0,0,0)',
+          display: 'flex',
+          justifyContent: 'center',
+          alignItems: 'center',
+          zIndex: 1001,
+          pointerEvents: settingsVisible ? 'auto' : 'none',
+          transition: 'background-color 0.3s ease',
+        }}
+        onClick={() => setSettingsVisible(false)}
+      >
+        <div
+          style={{
+            width: 320,
+            maxWidth: '90vw',
+            backgroundColor: isDark ? '#1E1E1E' : '#FFFFFF',
+            borderRadius: 16,
+            boxShadow: settingsVisible ? '0 10px 40px rgba(0,0,0,0.3)' : 'none',
+            transform: settingsVisible ? 'scale(1)' : 'scale(0.9)',
+            opacity: settingsVisible ? 1 : 0,
+            transition: 'transform 0.3s cubic-bezier(0.4, 0, 0.2, 1), opacity 0.3s ease',
+            overflow: 'hidden',
+          }}
+          onClick={(e) => e.stopPropagation()}
+        >
+          {/* Settings Header */}
+          <div
+            style={{
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'space-between',
+              padding: '16px 20px',
+              borderBottom: `1px solid ${borderColor}`,
+              background: isDark
+                ? `linear-gradient(135deg, ${hexToRgba(activeConfig.accentColor, 0.1)} 0%, transparent 100%)`
+                : `linear-gradient(135deg, ${hexToRgba(activeConfig.accentColor, 0.08)} 0%, transparent 100%)`,
+            }}
+          >
+            <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+              <SettingsIcon size={22} color={activeConfig.accentColor} />
+              <span style={{ fontSize: 18, color: activeConfig.accentColor, fontWeight: 600 }}>الإعدادات</span>
+            </div>
+            <button
+              className="btn-modern btn-icon"
+              onClick={() => setSettingsVisible(false)}
+              style={{
+                width: 36,
+                height: 36,
+                borderRadius: 10,
+                border: 'none',
+                background: isDark ? 'rgba(255,255,255,0.1)' : 'rgba(0,0,0,0.05)',
+                cursor: 'pointer',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+              }}
+            >
+              <XIcon size={18} color={textColor} />
+            </button>
+          </div>
+
+          {/* Settings Content */}
+          <div style={{ padding: '16px 20px' }}>
+            {/* Theme Toggle */}
+            <div style={{ marginBottom: 20 }}>
+              <div style={{
+                fontSize: 14,
+                color: isDark ? '#A0A0A0' : '#666',
+                marginBottom: 10,
+                fontWeight: 500,
+              }}>
+                المظهر
+              </div>
+              <div style={{ display: 'flex', gap: 10 }}>
+                <button
+                  className="btn-modern"
+                  onClick={() => setTheme('light')}
+                  style={{
+                    flex: 1,
+                    padding: '12px 16px',
+                    borderRadius: 10,
+                    border: theme === 'light' ? `2px solid ${activeConfig.accentColor}` : `1px solid ${borderColor}`,
+                    background: theme === 'light'
+                      ? (isDark ? activeConfig.accentColorLightDark : activeConfig.accentColorLight)
+                      : (isDark ? 'rgba(255,255,255,0.05)' : 'rgba(0,0,0,0.02)'),
+                    cursor: 'pointer',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    gap: 8,
+                  }}
+                >
+                  <SunIcon size={18} color={theme === 'light' ? activeConfig.accentColor : (isDark ? '#A0A0A0' : '#666')} />
+                  <span style={{
+                    fontSize: 14,
+                    color: theme === 'light' ? activeConfig.accentColor : textColor,
+                    fontWeight: theme === 'light' ? 600 : 400,
+                  }}>
+                    فاتح
+                  </span>
+                </button>
+                <button
+                  className="btn-modern"
+                  onClick={() => setTheme('dark')}
+                  style={{
+                    flex: 1,
+                    padding: '12px 16px',
+                    borderRadius: 10,
+                    border: theme === 'dark' ? `2px solid ${activeConfig.accentColor}` : `1px solid ${borderColor}`,
+                    background: theme === 'dark'
+                      ? (isDark ? activeConfig.accentColorLightDark : activeConfig.accentColorLight)
+                      : (isDark ? 'rgba(255,255,255,0.05)' : 'rgba(0,0,0,0.02)'),
+                    cursor: 'pointer',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    gap: 8,
+                  }}
+                >
+                  <MoonIcon size={18} color={theme === 'dark' ? activeConfig.accentColor : (isDark ? '#A0A0A0' : '#666')} />
+                  <span style={{
+                    fontSize: 14,
+                    color: theme === 'dark' ? activeConfig.accentColor : textColor,
+                    fontWeight: theme === 'dark' ? 600 : 400,
+                  }}>
+                    داكن
+                  </span>
+                </button>
+              </div>
+            </div>
+
+            {/* Riwaya Selector */}
+            <div>
+              <div style={{
+                fontSize: 14,
+                color: isDark ? '#A0A0A0' : '#666',
+                marginBottom: 10,
+                fontWeight: 500,
+              }}>
+                الرواية
+              </div>
+              <div style={{ display: 'flex', gap: 10 }}>
+                <button
+                  className="btn-modern"
+                  onClick={() => setCurrentRiwaya('warsh')}
+                  style={{
+                    flex: 1,
+                    padding: '12px 16px',
+                    borderRadius: 10,
+                    border: currentRiwaya === 'warsh' ? `2px solid ${activeConfig.accentColor}` : `1px solid ${borderColor}`,
+                    background: currentRiwaya === 'warsh'
+                      ? (isDark ? activeConfig.accentColorLightDark : activeConfig.accentColorLight)
+                      : (isDark ? 'rgba(255,255,255,0.05)' : 'rgba(0,0,0,0.02)'),
+                    cursor: 'pointer',
+                    display: 'flex',
+                    flexDirection: 'column',
+                    alignItems: 'center',
+                    gap: 4,
+                  }}
+                >
+                  <span style={{
+                    fontSize: 16,
+                    color: currentRiwaya === 'warsh' ? activeConfig.accentColor : textColor,
+                    fontWeight: currentRiwaya === 'warsh' ? 600 : 400,
+                    fontFamily: 'Traditional Arabic, serif',
+                  }}>
+                    ورش
+                  </span>
+                  <span style={{
+                    fontSize: 11,
+                    color: isDark ? '#A0A0A0' : '#888',
+                  }}>
+                    Warsh
+                  </span>
+                </button>
+                <button
+                  className="btn-modern"
+                  onClick={() => setCurrentRiwaya('hafs')}
+                  style={{
+                    flex: 1,
+                    padding: '12px 16px',
+                    borderRadius: 10,
+                    border: currentRiwaya === 'hafs' ? `2px solid ${activeConfig.accentColor}` : `1px solid ${borderColor}`,
+                    background: currentRiwaya === 'hafs'
+                      ? (isDark ? activeConfig.accentColorLightDark : activeConfig.accentColorLight)
+                      : (isDark ? 'rgba(255,255,255,0.05)' : 'rgba(0,0,0,0.02)'),
+                    cursor: 'pointer',
+                    display: 'flex',
+                    flexDirection: 'column',
+                    alignItems: 'center',
+                    gap: 4,
+                    opacity: 0.5, // Disabled look until Hafs data is ready
+                  }}
+                  disabled // Hafs data not yet available
+                  title="قريباً - Hafs coming soon"
+                >
+                  <span style={{
+                    fontSize: 16,
+                    color: currentRiwaya === 'hafs' ? activeConfig.accentColor : textColor,
+                    fontWeight: currentRiwaya === 'hafs' ? 600 : 400,
+                    fontFamily: 'Traditional Arabic, serif',
+                  }}>
+                    حفص
+                  </span>
+                  <span style={{
+                    fontSize: 11,
+                    color: isDark ? '#A0A0A0' : '#888',
+                  }}>
+                    Hafs (قريباً)
+                  </span>
+                </button>
+              </div>
+            </div>
+          </div>
+
+          {/* Settings Footer */}
+          <div style={{
+            padding: '12px 20px',
+            borderTop: `1px solid ${borderColor}`,
+            textAlign: 'center',
+          }}>
+            <span style={{
+              fontSize: 11,
+              color: isDark ? '#666' : '#999',
+            }}>
+              {activeConfig.name} • {activeConfig.totalPages} صفحة
+            </span>
+          </div>
         </div>
       </div>
     </div>
