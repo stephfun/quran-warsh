@@ -131,14 +131,26 @@ const MoonIcon: React.FC<{ size?: number; color?: string }> = ({ size = 24, colo
 // ============================================
 // CSS ANIMATIONS (injected once)
 // ============================================
+
+// Helper pour convertir hex en rgba (utilisé par injectStyles et dans les composants)
+const hexToRgba = (hex: string, alpha: number): string => {
+  const r = parseInt(hex.slice(1, 3), 16);
+  const g = parseInt(hex.slice(3, 5), 16);
+  const b = parseInt(hex.slice(5, 7), 16);
+  return `rgba(${r}, ${g}, ${b}, ${alpha})`;
+};
+
 const injectStyles = () => {
   if (typeof document !== 'undefined' && !document.getElementById('quran-app-styles')) {
     const style = document.createElement('style');
     style.id = 'quran-app-styles';
+    // Utilise les couleurs de la config active
+    const pulseColor04 = hexToRgba(riwayaConfig.accentColor, 0.4);
+    const pulseColor0 = hexToRgba(riwayaConfig.accentColor, 0);
     style.textContent = `
       @keyframes pulse-green {
-        0%, 100% { box-shadow: 0 0 0 0 rgba(18, 208, 132, 0.4); }
-        50% { box-shadow: 0 0 0 12px rgba(18, 208, 132, 0); }
+        0%, 100% { box-shadow: 0 0 0 0 ${pulseColor04}; }
+        50% { box-shadow: 0 0 0 12px ${pulseColor0}; }
       }
       @keyframes spin-slow {
         from { transform: rotate(0deg); }
@@ -333,7 +345,7 @@ const QuranPageWeb: React.FC<{ page: Page; pageNumber: number; isDark: boolean; 
   const bgColor = isDark ? '#1A1A1A' : '#FDFBF7';
   const textColor = isDark ? '#F0EDE8' : '#1A1614';
   const borderColor = isDark ? '#333' : '#E8E4DD';
-  const accentLight = isDark ? '#1E3D2F' : '#E8FBF3';
+  const accentLight = isDark ? riwayaConfig.accentColorLightDark : riwayaConfig.accentColorLight;
 
   // Couleur du cadre ornemental (vert foncé style bois peint)
   const frameColor = isDark ? '#1E5631' : '#2D5A3D';
@@ -578,9 +590,9 @@ const QuranPageWeb: React.FC<{ page: Page; pageNumber: number; isDark: boolean; 
                                   fontFamily: '-apple-system, BlinkMacSystemFont, sans-serif',
                                   fontSize: 8,
                                   fontWeight: 700,
-                                  color: '#12D084',
+                                  color: riwayaConfig.accentColor,
                                   backgroundColor: accentLight,
-                                  border: '1.5px solid #12D084',
+                                  border: `1.5px solid ${riwayaConfig.accentColor}`,
                                   borderRadius: '50%',
                                   flexShrink: 0,
                                   lineHeight: 1,
@@ -749,9 +761,9 @@ const QuranPageWeb: React.FC<{ page: Page; pageNumber: number; isDark: boolean; 
                             fontFamily: '-apple-system, BlinkMacSystemFont, sans-serif',
                             fontSize: 9,
                             fontWeight: 700,
-                            color: '#12D084',
+                            color: riwayaConfig.accentColor,
                             backgroundColor: accentLight,
-                            border: '1.5px solid #12D084',
+                            border: `1.5px solid ${riwayaConfig.accentColor}`,
                             borderRadius: '50%',
                             flexShrink: 0,
                             lineHeight: 1,
@@ -1069,8 +1081,8 @@ function App() {
               width: 40,
               height: 40,
               borderRadius: 10,
-              backgroundColor: hiddenMode ? '#12D084' : (isDark ? 'rgba(255,255,255,0.1)' : 'rgba(0,0,0,0.05)'),
-              border: hiddenMode ? '2px solid #0BA968' : 'none',
+              backgroundColor: hiddenMode ? riwayaConfig.accentColor : (isDark ? 'rgba(255,255,255,0.1)' : 'rgba(0,0,0,0.05)'),
+              border: hiddenMode ? `2px solid ${riwayaConfig.accentColorDark}` : 'none',
               cursor: 'pointer',
               display: 'flex',
               alignItems: 'center',
@@ -1121,13 +1133,13 @@ function App() {
             width: 52,
             height: 52,
             borderRadius: 26,
-            background: 'linear-gradient(135deg, #12D084 0%, #0BA968 100%)',
+            background: `linear-gradient(135deg, ${riwayaConfig.accentColor} 0%, ${riwayaConfig.accentColorDark} 100%)`,
             border: 'none',
             cursor: 'pointer',
             display: 'flex',
             alignItems: 'center',
             justifyContent: 'center',
-            boxShadow: '0 4px 15px rgba(18, 208, 132, 0.4)',
+            boxShadow: `0 4px 15px ${riwayaConfig.accentColor}66`,
           }}
           title="Lancer la récitation"
         >
@@ -1174,13 +1186,13 @@ function App() {
                 padding: '16px 20px',
                 borderBottom: `1px solid ${borderColor}`,
                 background: isDark
-                  ? 'linear-gradient(135deg, rgba(18, 208, 132, 0.1) 0%, transparent 100%)'
-                  : 'linear-gradient(135deg, rgba(18, 208, 132, 0.08) 0%, transparent 100%)',
+                  ? `linear-gradient(135deg, ${hexToRgba(riwayaConfig.accentColor, 0.1)} 0%, transparent 100%)`
+                  : `linear-gradient(135deg, ${hexToRgba(riwayaConfig.accentColor, 0.08)} 0%, transparent 100%)`,
               }}
             >
               <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-                <BookOpenIcon size={22} color="#12D084" />
-                <span style={{ fontSize: 18, color: '#12D084', fontWeight: 600 }}>السور</span>
+                <BookOpenIcon size={22} color={riwayaConfig.accentColor} />
+                <span style={{ fontSize: 18, color: riwayaConfig.accentColor, fontWeight: 600 }}>السور</span>
               </div>
               <button
                 className="btn-modern btn-icon"
@@ -1215,7 +1227,7 @@ function App() {
                       borderBottom: `1px solid ${isDark ? '#333' : '#EEE'}`,
                       cursor: 'pointer',
                       backgroundColor: isCurrentSurah
-                        ? (isDark ? '#1E3D2F' : '#E8FBF3')
+                        ? (isDark ? riwayaConfig.accentColorLightDark : riwayaConfig.accentColorLight)
                         : 'transparent',
                     }}
                   >
@@ -1225,15 +1237,15 @@ function App() {
                         height: 32,
                         borderRadius: 16,
                         backgroundColor: isCurrentSurah
-                          ? '#12D084'
-                          : (isDark ? '#1E3D2F' : '#E8FBF3'),
+                          ? riwayaConfig.accentColor
+                          : (isDark ? riwayaConfig.accentColorLightDark : riwayaConfig.accentColorLight),
                         display: 'flex',
                         alignItems: 'center',
                         justifyContent: 'center',
                         marginLeft: 12,
                         fontSize: 12,
                         fontWeight: 600,
-                        color: isCurrentSurah ? '#FFFFFF' : '#12D084',
+                        color: isCurrentSurah ? '#FFFFFF' : riwayaConfig.accentColor,
                       }}
                     >
                       {surah.no}
@@ -1241,7 +1253,7 @@ function App() {
                     <div style={{ flex: 1 }}>
                       <div style={{
                         fontSize: 16,
-                        color: isCurrentSurah ? '#12D084' : textColor,
+                        color: isCurrentSurah ? riwayaConfig.accentColor : textColor,
                         fontWeight: isCurrentSurah ? 600 : 400,
                       }}>
                         {surah.name_ar}

@@ -29,6 +29,7 @@ export interface RiwayaConfig {
   // Couleurs (optionnel, pour différencier visuellement)
   accentColor: string;
   accentColorLight: string;
+  accentColorLightDark: string; // Version sombre de accentColorLight (mode dark)
   accentColorDark: string;
 
   // Support Tajweed (couleurs des règles)
@@ -167,6 +168,7 @@ export const WARSH_CONFIG: RiwayaConfig = {
 
   accentColor: '#12D084',
   accentColorLight: '#E8FBF3',
+  accentColorLightDark: '#1E3D2F', // Version sombre pour mode dark
   accentColorDark: '#0BA968',
 
   supportsTajweedColors: false,
@@ -209,6 +211,7 @@ export const HAFS_CONFIG: RiwayaConfig = {
 
   accentColor: '#12D084',
   accentColorLight: '#E8FBF3',
+  accentColorLightDark: '#1E3D2F', // Version sombre pour mode dark
   accentColorDark: '#0BA968',
 
   supportsTajweedColors: true, // Hafs supporte les couleurs Tajweed
