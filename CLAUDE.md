@@ -526,3 +526,112 @@ test('Ma fonctionnalité', async ({ page }) => {
 ---
 
 *Créé le 01/02/2026 - Mis à jour le 01/02/2026*
+
+---
+
+## REFACTORING EN COURS (01/02/2026)
+
+### Objectif : Support multi-riwaya (Warsh + Hafs)
+
+#### Fichier créé : `src/config/riwayaConfig.ts`
+
+Centralise toutes les valeurs spécifiques à chaque riwaya :
+
+```typescript
+interface RiwayaConfig {
+  id: 'warsh' | 'hafs';
+  name: string;
+  nameAr: string;
+  totalPages: number;           // 604 Warsh, variable Hafs
+  linesPerPage: number;         // 15
+  specialPages: number[];       // [1, 2] pour Al-Fatiha
+  specialPagesLineCount: number; // 6 lignes de texte
+  fontFamily: string;           // KFGQPC-Warsh ou KFGQPC-Hafs
+  thoumnMarkers: Set<string>;   // 434 marqueurs Warsh
+  hizbStartPages: number[];     // 60 valeurs par riwaya
+  accentColor: string;          // #12D084
+  supportsTajweedColors: boolean; // true pour Hafs
+}
+```
+
+#### Modifications dans App.web.tsx
+
+Remplacer les valeurs hardcodées par `riwayaConfig.*` :
+
+| Avant | Après |
+|-------|-------|
+| `KFGQPC-Warsh, Traditional Arabic, serif` | `riwayaConfig.fontFamily` |
+| `pageNumber === 1 \|\| pageNumber === 2` | `riwayaConfig.specialPages.includes(pageNumber)` |
+| `LINES_COUNT = 6` | `riwayaConfig.specialPagesLineCount` |
+| `page.total_lines \|\| 15` | `page.total_lines \|\| riwayaConfig.linesPerPage` |
+| `THOUMN_MARKERS_WARSH` | `isThoumnMarker(sura, aya)` (importé) |
+| `getQuranPosition(page)` | `getQuranPosition(page, CURRENT_RIWAYA)` (importé) |
+
+#### État du refactoring
+
+- [x] Fichier `riwayaConfig.ts` créé avec config Warsh complète
+- [x] Import ajouté dans App.web.tsx
+- [x] `fontFamily` → `riwayaConfig.fontFamily` (7 occurrences)
+- [x] `isSpecialPage` → utilise `riwayaConfig.specialPages`
+- [x] `LINES_COUNT` → `riwayaConfig.specialPagesLineCount`
+- [x] `total_lines || 15` → `riwayaConfig.linesPerPage` (3 occurrences)
+- [ ] Build et test à faire
+
+---
+
+## FEATURE RECITATION (À IMPLÉMENTER)
+
+### UI Simplifiée demandée
+
+1. **Bottom bar** :
+   - Bouton enregistrement (🎤) à DROITE (pas à gauche)
+   - Style CSS pulse conservé
+   - Autres boutons masqués jusqu'au lancement de session
+
+2. **Mode récitation** :
+   - Au lancement : tous les mots masqués (cercles gris)
+   - Révélation mot par mot selon reconnaissance vocale
+   - Si erreur : vibration + mot suivant en ROUGE
+   - Attente 10s pour correction, sinon re-vibration + flash rouge
+   - Bouton aide (💡) : révèle mot suivant en VERT
+
+3. **Navigation** :
+   - Page complètement récitée → auto-swipe page suivante
+   - Retour manuel sur pages déjà récitées (mots visibles)
+
+### Workflow Tarteel analysé
+
+```
+[1] Tap bouton 🎤 → mode récitation activé
+[2] Mots deviennent ⊙ ⊙ ⊙ ⊙ (cercles gris)
+[3] Utilisateur parle → STT reconnaît
+[4] Mot correct → révélé en noir
+[5] Mot incorrect → ROUGE + vibration + attente correction
+[6] Bouton aide → révèle 1 mot en VERT
+[7] Page terminée → swipe auto page suivante
+```
+
+### Icônes à ajouter
+
+- **MicIcon** : Microphone pour enregistrement
+- **HelpIcon** : Ampoule/question pour aide (révéler mot)
+- **StopIcon** : Carré pour arrêter session
+
+### États des mots CSS
+
+```css
+.word-hidden { background: #D4D0C8; border-radius: 50%; } /* Cercle gris */
+.word-current { background: #12D084; color: white; }      /* En cours */
+.word-correct { color: #1A1614; }                         /* Révélé OK */
+.word-error { color: #DC3545; animation: flash 0.5s; }   /* Erreur */
+.word-help { color: #12D084; }                           /* Aide */
+```
+
+---
+
+## Commits récents
+
+- `b1755ca` - Feat(pages): special layout for pages 1-2 with 6 lines of text
+- `d32841f` - Initial commit - Quran Warsh App
+
+GitHub: https://github.com/stephfun/quran-warsh.git
