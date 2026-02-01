@@ -1,0 +1,15 @@
+version: "3.8"
+
+services:
+  quran-app:
+    build:
+      context: ./docker
+      dockerfile: Dockerfile
+    container_name: quran-app
+    restart: unless-stopped
+    ports:
+      - "5006:5006"
+    environment:
+      - TZ=Europe/Paris
+    labels:
+      - "com.centurylinklabs.watchtower.enable=true"
