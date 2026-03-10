@@ -19,6 +19,23 @@ import {
   DEFAULT_RIWAYA,
   type RiwayaType
 } from './src/config/riwayaConfig';
+import {
+  savePageProgress,
+  getPageProgress,
+  markPageCompleted,
+  clearPageProgress,
+} from './src/services/recitationStorage';
+import {
+  RecitationSession,
+  createSession,
+  updateSession,
+  getSession,
+  getAllSessions,
+  deleteSession,
+  pauseSession,
+  mapToStorable,
+  storableToMap,
+} from './src/services/sessionStorage';
 
 // Configuration active (peut être changée dynamiquement)
 const CURRENT_RIWAYA: RiwayaType = DEFAULT_RIWAYA;
@@ -128,6 +145,50 @@ const MoonIcon: React.FC<{ size?: number; color?: string }> = ({ size = 24, colo
   </svg>
 );
 
+// Mic Icon - Microphone moderne pour récitation
+const MicIcon: React.FC<{ size?: number; color?: string }> = ({ size = 24, color = 'currentColor' }) => (
+  <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+    <path d="M12 2a3 3 0 0 0-3 3v7a3 3 0 0 0 6 0V5a3 3 0 0 0-3-3z"/>
+    <path d="M19 10v2a7 7 0 0 1-14 0v-2"/>
+    <line x1="12" y1="19" x2="12" y2="22"/>
+    <line x1="8" y1="22" x2="16" y2="22"/>
+  </svg>
+);
+
+// Stop Icon - Arrêter la récitation (carré arrondi)
+const StopIcon: React.FC<{ size?: number; color?: string }> = ({ size = 24, color = 'currentColor' }) => (
+  <svg width={size} height={size} viewBox="0 0 24 24" fill={color} stroke="none">
+    <rect x="6" y="6" width="12" height="12" rx="2"/>
+  </svg>
+);
+
+// Help Icon - Ampoule pour révéler le mot suivant
+const HelpIcon: React.FC<{ size?: number; color?: string }> = ({ size = 24, color = 'currentColor' }) => (
+  <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+    <path d="M9 18h6"/>
+    <path d="M10 22h4"/>
+    <path d="M12 2a7 7 0 0 0-7 7c0 2.38 1.19 4.47 3 5.74V17a1 1 0 0 0 1 1h6a1 1 0 0 0 1-1v-2.26c1.81-1.27 3-3.36 3-5.74a7 7 0 0 0-7-7z"/>
+  </svg>
+);
+
+// History Icon - Liste pour l'historique des sessions
+const HistoryIcon: React.FC<{ size?: number; color?: string }> = ({ size = 24, color = 'currentColor' }) => (
+  <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+    <path d="M12 8v4l3 3"/>
+    <circle cx="12" cy="12" r="9"/>
+    <path d="M3 12a9 9 0 0 1 9-9"/>
+  </svg>
+);
+
+// Trash Icon - Supprimer une session
+const TrashIcon: React.FC<{ size?: number; color?: string }> = ({ size = 24, color = 'currentColor' }) => (
+  <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+    <path d="M3 6h18"/>
+    <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6"/>
+    <path d="M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/>
+  </svg>
+);
+
 // ============================================
 // CSS ANIMATIONS (injected once)
 // ============================================
@@ -152,6 +213,14 @@ const injectStyles = () => {
         0%, 100% { box-shadow: 0 0 0 0 ${pulseColor04}; }
         50% { box-shadow: 0 0 0 12px ${pulseColor0}; }
       }
+      @keyframes pulse-red {
+        0%, 100% { box-shadow: 0 0 0 0 rgba(220, 53, 69, 0.5); }
+        50% { box-shadow: 0 0 0 12px rgba(220, 53, 69, 0); }
+      }
+      @keyframes flash-error {
+        0%, 100% { opacity: 1; }
+        50% { opacity: 0.3; }
+      }
       @keyframes spin-slow {
         from { transform: rotate(0deg); }
         to { transform: rotate(360deg); }
@@ -173,6 +242,44 @@ const injectStyles = () => {
       .btn-play:hover {
         animation: none;
         transform: scale(1.1);
+      }
+      .btn-rec {
+        /* Pas d'animation pulse pour le bouton enregistrement */
+      }
+      .btn-rec:hover {
+        transform: scale(1.1);
+      }
+      .btn-rec-active {
+        animation: pulse-red 2s infinite;
+      }
+      .btn-rec-active:hover {
+        animation: none;
+        transform: scale(1.1);
+      }
+      .word-hidden {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        background: #D4D0C8;
+        border-radius: 8px;
+        min-width: 20px;
+        height: 1.2em;
+        margin: 0 2px;
+      }
+      .word-revealed {
+        color: inherit;
+      }
+      .word-error {
+        color: #DC3545 !important;
+        animation: flash-error 0.5s ease-in-out 3;
+      }
+      .word-help {
+        color: #12D084 !important;
+      }
+      .word-current {
+        background: rgba(18, 208, 132, 0.2);
+        border-radius: 4px;
+        padding: 0 4px;
       }
       .btn-icon:hover svg {
         transform: scale(1.1);
@@ -343,12 +450,20 @@ const QuranPageWeb: React.FC<{
   isDark: boolean;
   isFirstPageOfSurah: boolean;
   config: typeof riwayaConfig; // Config de la riwaya active
+  isReciting?: boolean; // Mode récitation actif
+  revealedWords?: Set<number>; // Index des mots révélés
+  lastRevealedWord?: number | null; // Dernier mot révélé (affiché en vert)
+  onWordClick?: (wordIndex: number) => void; // Callback au clic sur un mot
 }> = ({
   page,
   pageNumber,
   isDark,
   isFirstPageOfSurah,
   config,
+  isReciting = false,
+  revealedWords = new Set(),
+  lastRevealedWord = null,
+  onWordClick,
 }) => {
   const bgColor = isDark ? '#1A1A1A' : '#FDFBF7';
   const textColor = isDark ? '#F0EDE8' : '#1A1614';
@@ -372,6 +487,67 @@ const QuranPageWeb: React.FC<{
   // Line-height adaptative
   // Pages 1-2: espacement pour que tout rentre
   const lineHeight = isSpecialPage ? 1.8 : getLineHeightForWords(page.total_words);
+
+  // Mots de la Basmala avec indices négatifs (avant le contenu des versets)
+  // Ces indices permettent de les masquer/révéler indépendamment
+  const BASMALA_WORDS = [
+    { text: 'بِسْمِ', index: -4 },
+    { text: 'ٱللَّهِ', index: -3 },
+    { text: 'ٱلرَّحْمَٰنِ', index: -2 },
+    { text: 'ٱلرَّحِيمِ', index: -1 },
+  ];
+
+  // Helper pour rendre un mot (visible ou masqué en mode récitation)
+  // IMPORTANT: Les styles doivent être identiques pour éviter les décalages de layout
+  const renderWord = (item: { text?: string; index?: number }, key: string) => {
+    const wordIndex = item.index ?? -1;
+    const isRevealed = !isReciting || revealedWords.has(wordIndex);
+    const isLastRevealed = wordIndex === lastRevealedWord;
+
+    // Style de base commun pour éviter les décalages de layout
+    const baseStyle: React.CSSProperties = {
+      display: 'inline-block',
+      cursor: 'pointer',
+      whiteSpace: 'nowrap',
+      borderRadius: 4,
+    };
+
+    if (isReciting && !isRevealed) {
+      // Mot masqué: fond gris, texte transparent (garde les dimensions exactes)
+      return (
+        <span
+          key={key}
+          data-testid="word-hidden"
+          data-word-index={wordIndex}
+          onClick={() => onWordClick?.(wordIndex)}
+          style={{
+            ...baseStyle,
+            backgroundColor: isDark ? '#3A3A3A' : '#E8E4DD',
+            color: 'transparent',
+            userSelect: 'none',
+          }}
+        >
+          {item.text}
+        </span>
+      );
+    }
+
+    // Mot visible - vert seulement si c'est le DERNIER mot révélé
+    return (
+      <span
+        key={key}
+        data-testid={isLastRevealed ? 'word-last-revealed' : 'word-visible'}
+        data-word-index={wordIndex}
+        onClick={() => onWordClick?.(wordIndex)}
+        style={{
+          ...baseStyle,
+          color: isLastRevealed ? config.accentColor : undefined,
+        }}
+      >
+        {item.text}
+      </span>
+    );
+  };
 
   return (
     <div
@@ -511,7 +687,7 @@ const QuranPageWeb: React.FC<{
                         />
                       </div>
                     )}
-                    {/* Basmala */}
+                    {/* Basmala - mot par mot pour le mode récitation */}
                     {hasBasmala && (
                       <div style={{
                         display: 'flex',
@@ -521,8 +697,10 @@ const QuranPageWeb: React.FC<{
                         fontFamily: config.fontFamily,
                         fontSize: fontSize,
                         color: textColor,
+                        gap: '8px',
+                        direction: 'rtl',
                       }}>
-                        بِسْمِ ٱللَّهِ ٱلرَّحْمَٰنِ ٱلرَّحِيمِ
+                        {BASMALA_WORDS.map((word, idx) => renderWord(word, `basmala-${idx}`))}
                       </div>
                     )}
                     {/* 6 lignes de texte */}
@@ -611,9 +789,7 @@ const QuranPageWeb: React.FC<{
                               </span>
                             )
                           ) : (
-                            <span key={item.index ?? `word-${idx}`} style={{ cursor: 'pointer', whiteSpace: 'nowrap' }}>
-                              {item.text}
-                            </span>
+                            renderWord(item, item.index?.toString() ?? `word-${idx}`)
                           )
                         )}
                       </div>
@@ -656,7 +832,7 @@ const QuranPageWeb: React.FC<{
                 );
               }
 
-              // Si la ligne contient une basmala, l'afficher avec style Othmani
+              // Si la ligne contient une basmala, l'afficher mot par mot pour le mode récitation
               if (basmala) {
                 return (
                   <div
@@ -672,9 +848,11 @@ const QuranPageWeb: React.FC<{
                       fontFamily: config.fontFamily,
                       fontSize: 'clamp(16px, 2.5vw, 24px)',
                       color: textColor,
+                      gap: '8px',
+                      direction: 'rtl',
                     }}
                   >
-                    بِسْمِ ٱللَّهِ ٱلرَّحْمَٰنِ ٱلرَّحِيمِ
+                    {BASMALA_WORDS.map((word, idx) => renderWord(word, `basmala-${line.line}-${idx}`))}
                   </div>
                 );
               }
@@ -784,12 +962,7 @@ const QuranPageWeb: React.FC<{
                         </span>
                       )
                     ) : (
-                      <span
-                        key={item.index ?? `word-${idx}`}
-                        style={{ cursor: 'pointer', whiteSpace: 'nowrap' }}
-                      >
-                        {item.text}
-                      </span>
+                      renderWord(item, item.index?.toString() ?? `word-${idx}`)
                     )
                   )}
                 </div>
@@ -821,6 +994,12 @@ const QuranPageWeb: React.FC<{
   );
 };
 
+// Types pour l'état de la session
+type SessionStatus = 'idle' | 'active' | 'paused';
+
+// Constantes pour le layout responsive
+const MAX_PAGE_WIDTH = 700; // Largeur max d'une page pour éviter les lignes trop étalées
+
 function App() {
   const [currentPage, setCurrentPage] = useState(0);
   const [theme, setTheme] = useState<ThemeMode>('light');
@@ -828,11 +1007,28 @@ function App() {
   const [settingsVisible, setSettingsVisible] = useState(false);
   const [currentRiwaya, setCurrentRiwaya] = useState<RiwayaType>(DEFAULT_RIWAYA);
   const [hiddenMode, setHiddenMode] = useState(false);
+
+  // État de la session de récitation
+  const [sessionStatus, setSessionStatus] = useState<SessionStatus>('idle');
+  const [currentSession, setCurrentSession] = useState<RecitationSession | null>(null);
+  const [revealedWordsPerPage, setRevealedWordsPerPage] = useState<Map<number, Set<number>>>(new Map());
+  const [lastRevealedWord, setLastRevealedWord] = useState<number | null>(null);
+  const [lastRevealedPage, setLastRevealedPage] = useState<number | null>(null);
+
+  // Modals
+  const [historyVisible, setHistoryVisible] = useState(false);
+  const [stopConfirmVisible, setStopConfirmVisible] = useState(false);
+  const [savedSessions, setSavedSessions] = useState<RecitationSession[]>([]);
+
   const swiperRef = useRef<SwiperType | null>(null);
   const menuListRef = useRef<HTMLDivElement | null>(null);
+  const autoSaveTimerRef = useRef<NodeJS.Timeout | null>(null);
 
   // Config dynamique basée sur la riwaya sélectionnée
   const activeConfig = getRiwayaConfig(currentRiwaya);
+
+  // Dériver isReciting de sessionStatus pour les hooks useEffect
+  const isReciting = sessionStatus === 'active';
 
   // Inject CSS animations on mount
   useEffect(() => {
@@ -886,6 +1082,304 @@ function App() {
   const toggleHiddenMode = useCallback(() => {
     setHiddenMode((prev) => !prev);
   }, []);
+
+  // Obtenir les infos de position Quran
+  const getPositionInfo = useCallback(() => {
+    const pos = getQuranPosition(currentPage + 1, currentRiwaya);
+    return {
+      surahName: pageData?.sura?.name_ar || '',
+      surahNo: pageData?.sura?.no || 1,
+      juz: pos.juz,
+      hizb: pos.hizb,
+      thoumn: pos.thoumn,
+    };
+  }, [currentPage, currentRiwaya, pageData]);
+
+  // Démarrer une nouvelle session
+  const startNewSession = useCallback(async () => {
+    const pos = getPositionInfo();
+
+    // Créer nouvelle session dans IndexedDB
+    const session = await createSession(
+      currentRiwaya,
+      currentPage,
+      pos.surahName,
+      pos.surahNo,
+      pos.juz,
+      pos.hizb,
+      pos.thoumn
+    );
+
+    // Initialiser l'état
+    setCurrentSession(session);
+    setRevealedWordsPerPage(new Map());
+    setLastRevealedWord(null);
+    setLastRevealedPage(null);
+    setSessionStatus('active');
+  }, [currentRiwaya, currentPage, getPositionInfo]);
+
+  // Mettre en pause la session (sauvegarde et garde l'affichage)
+  const pauseCurrentSession = useCallback(async () => {
+    if (!currentSession) return;
+
+    // Mettre à jour la session avec les données actuelles
+    currentSession.revealedWordsPerPage = mapToStorable(revealedWordsPerPage);
+    currentSession.lastRevealedPage = lastRevealedPage;
+    currentSession.lastRevealedWord = lastRevealedWord;
+    currentSession.currentPage = currentPage;
+
+    // Sauvegarder comme pausée
+    await pauseSession(currentSession);
+    setSessionStatus('paused');
+  }, [currentSession, revealedWordsPerPage, lastRevealedPage, lastRevealedWord, currentPage]);
+
+  // Reprendre une session (depuis pause ou historique)
+  const resumeSession = useCallback(async (session?: RecitationSession) => {
+    const sessionToResume = session || currentSession;
+    if (!sessionToResume) return;
+
+    // Charger les données de la session
+    const loadedWords = storableToMap(sessionToResume.revealedWordsPerPage);
+    setRevealedWordsPerPage(loadedWords);
+    setLastRevealedPage(sessionToResume.lastRevealedPage);
+    setLastRevealedWord(sessionToResume.lastRevealedWord);
+    setCurrentSession({ ...sessionToResume, status: 'active' });
+    setSessionStatus('active');
+
+    // Naviguer vers la page de la session
+    if (swiperRef.current && sessionToResume.currentPage !== currentPage) {
+      swiperRef.current.slideTo(sessionToResume.currentPage, 300);
+    }
+
+    // Mettre à jour en base
+    sessionToResume.status = 'active';
+    await updateSession(sessionToResume);
+
+    // Fermer le modal historique
+    setHistoryVisible(false);
+  }, [currentSession, currentPage]);
+
+  // Arrêter et abandonner la session (sans sauvegarder)
+  const stopSession = useCallback(async () => {
+    if (currentSession) {
+      await deleteSession(currentSession.id);
+    }
+    setCurrentSession(null);
+    setRevealedWordsPerPage(new Map());
+    setLastRevealedWord(null);
+    setLastRevealedPage(null);
+    setSessionStatus('idle');
+    setStopConfirmVisible(false);
+  }, [currentSession]);
+
+  // Sauvegarder la session et revenir à l'état repos
+  const saveAndStopSession = useCallback(async () => {
+    if (currentSession) {
+      // Mettre à jour la session avec les données actuelles
+      currentSession.revealedWordsPerPage = mapToStorable(revealedWordsPerPage);
+      currentSession.lastRevealedPage = lastRevealedPage;
+      currentSession.lastRevealedWord = lastRevealedWord;
+      currentSession.currentPage = currentPage;
+
+      // Sauvegarder comme pausée
+      await pauseSession(currentSession);
+    }
+    // Réinitialiser l'UI
+    setCurrentSession(null);
+    setRevealedWordsPerPage(new Map());
+    setLastRevealedWord(null);
+    setLastRevealedPage(null);
+    setSessionStatus('idle');
+    setStopConfirmVisible(false);
+  }, [currentSession, revealedWordsPerPage, lastRevealedPage, lastRevealedWord, currentPage]);
+
+  // Charger l'historique des sessions
+  const loadHistory = useCallback(async () => {
+    const sessions = await getAllSessions(currentRiwaya);
+    setSavedSessions(sessions.filter(s => s.status === 'paused'));
+    setHistoryVisible(true);
+  }, [currentRiwaya]);
+
+  // Supprimer une session de l'historique
+  const deleteSessionFromHistory = useCallback(async (sessionId: string) => {
+    await deleteSession(sessionId);
+    setSavedSessions(prev => prev.filter(s => s.id !== sessionId));
+  }, []);
+
+  // Révéler un mot (simulation STT - sera appelé au clic)
+  const revealWord = useCallback((wordIndex: number) => {
+    setRevealedWordsPerPage((prev) => {
+      const newMap = new Map(prev);
+      const currentSet = new Set(prev.get(currentPage) || []);
+      currentSet.add(wordIndex);
+      newMap.set(currentPage, currentSet);
+      return newMap;
+    });
+    setLastRevealedWord(wordIndex);
+    setLastRevealedPage(currentPage);
+  }, [currentPage]);
+
+  // Vérifier si une page contient une Basmala
+  const pageHasBasmala = useCallback((pageIndex: number): boolean => {
+    const page = PAGES[pageIndex] as Page;
+    if (!page?.lines) return false;
+    return page.lines.some((line: { content: Array<{ type?: string }> }) =>
+      line.content.some(item => item.type === 'basmala')
+    );
+  }, []);
+
+  // Révéler le prochain mot avec aide (vert)
+  // Ordre: Basmala (-4, -3, -2, -1) puis versets (0, 1, 2, ...)
+  const revealNextWithHelp = useCallback(() => {
+    // Si on a un dernier mot révélé sur une autre page, y naviguer d'abord
+    if (lastRevealedPage !== null && lastRevealedPage !== currentPage) {
+      if (swiperRef.current) {
+        swiperRef.current.slideTo(lastRevealedPage, 300);
+      }
+      return;
+    }
+
+    const pageRevealedWords = revealedWordsPerPage.get(currentPage) || new Set();
+    const currentPageData = PAGES[currentPage] as Page;
+    const totalWords = currentPageData?.total_words || 0;
+    const hasBasmala = pageHasBasmala(currentPage);
+
+    // Construire la séquence d'indices à révéler
+    // Basmala: -4, -3, -2, -1 puis versets: 0, 1, 2, ...
+    const allIndices: number[] = [];
+    if (hasBasmala) {
+      allIndices.push(-4, -3, -2, -1);
+    }
+    for (let i = 0; i < totalWords; i++) {
+      allIndices.push(i);
+    }
+
+    // Trouver le prochain mot non révélé
+    let nextIndex: number | null = null;
+
+    if (lastRevealedWord !== null && lastRevealedPage === currentPage) {
+      // Continuer après le dernier mot révélé
+      const lastIdx = allIndices.indexOf(lastRevealedWord);
+      if (lastIdx !== -1 && lastIdx + 1 < allIndices.length) {
+        const candidate = allIndices[lastIdx + 1];
+        if (!pageRevealedWords.has(candidate)) {
+          nextIndex = candidate;
+        }
+      }
+    }
+
+    // Si pas trouvé, chercher le premier mot non révélé
+    if (nextIndex === null) {
+      for (const idx of allIndices) {
+        if (!pageRevealedWords.has(idx)) {
+          nextIndex = idx;
+          break;
+        }
+      }
+    }
+
+    // Révéler le mot trouvé
+    if (nextIndex !== null) {
+      setRevealedWordsPerPage((prev) => {
+        const newMap = new Map(prev);
+        const currentSet = new Set(prev.get(currentPage) || []);
+        currentSet.add(nextIndex as number);
+        newMap.set(currentPage, currentSet);
+        return newMap;
+      });
+      setLastRevealedWord(nextIndex);
+      setLastRevealedPage(currentPage);
+    }
+  }, [revealedWordsPerPage, currentPage, lastRevealedWord, lastRevealedPage, pageHasBasmala]);
+
+  // Auto-swipe quand tous les mots de la page sont révélés (incluant Basmala)
+  useEffect(() => {
+    if (sessionStatus !== 'active') return;
+
+    const totalVerseWords = pageData?.total_words || 0;
+    if (totalVerseWords === 0) return;
+
+    const hasBasmala = pageHasBasmala(currentPage);
+    const totalExpectedWords = totalVerseWords + (hasBasmala ? 4 : 0);
+    const currentRevealedWords = revealedWordsPerPage.get(currentPage) || new Set();
+
+    // Vérifier si tous les mots sont révélés (versets + Basmala si présente)
+    if (currentRevealedWords.size >= totalExpectedWords) {
+      // Attendre 1 seconde avant le swipe automatique
+      const timer = setTimeout(() => {
+        if (currentPage < PAGES.length - 1 && swiperRef.current) {
+          // Réinitialiser le dernier mot ET la dernière page pour la nouvelle page
+          // Cela évite que le bouton Help ne retourne à l'ancienne page
+          setLastRevealedWord(null);
+          setLastRevealedPage(null);
+          swiperRef.current.slideNext();
+        }
+      }, 1000);
+
+      return () => clearTimeout(timer);
+    }
+  }, [sessionStatus, revealedWordsPerPage, currentPage, pageData?.total_words, pageHasBasmala]);
+
+  // Auto-save toutes les 5 secondes quand session active
+  useEffect(() => {
+    if (sessionStatus !== 'active' || !currentSession) {
+      if (autoSaveTimerRef.current) {
+        clearInterval(autoSaveTimerRef.current);
+        autoSaveTimerRef.current = null;
+      }
+      return;
+    }
+
+    autoSaveTimerRef.current = setInterval(async () => {
+      if (currentSession && sessionStatus === 'active') {
+        currentSession.revealedWordsPerPage = mapToStorable(revealedWordsPerPage);
+        currentSession.lastRevealedPage = lastRevealedPage;
+        currentSession.lastRevealedWord = lastRevealedWord;
+        currentSession.currentPage = currentPage;
+        await updateSession(currentSession);
+      }
+    }, 5000);
+
+    return () => {
+      if (autoSaveTimerRef.current) {
+        clearInterval(autoSaveTimerRef.current);
+      }
+    };
+  }, [sessionStatus, currentSession, revealedWordsPerPage, lastRevealedPage, lastRevealedWord, currentPage]);
+
+  // Sauvegarder la progression dans IndexedDB (avec debounce)
+  useEffect(() => {
+    const currentRevealedWords = revealedWordsPerPage.get(currentPage) || new Set();
+    if (!isReciting || currentRevealedWords.size === 0) return;
+
+    const timer = setTimeout(() => {
+      const pageNumber = currentPage + 1;
+      const totalWords = pageData?.total_words || 0;
+
+      // Convertir le Set en tableau pour le stockage
+      const revealedArray = Array.from(currentRevealedWords);
+
+      if (currentRevealedWords.size >= totalWords) {
+        // Page complète - marquer comme terminée
+        markPageCompleted(currentRiwaya, pageNumber, revealedArray, [], [])
+          .catch(console.error);
+      } else {
+        // Sauvegarder la progression partielle
+        savePageProgress(currentRiwaya, pageNumber, revealedArray, [], [])
+          .catch(console.error);
+      }
+    }, 500); // Debounce 500ms
+
+    return () => clearTimeout(timer);
+  }, [isReciting, revealedWordsPerPage, currentPage, currentRiwaya, pageData?.total_words]);
+
+  // Réinitialiser le dernier mot révélé lors du changement de page en mode récitation
+  useEffect(() => {
+    if (!isReciting) return;
+    // Ne pas charger la progression sauvegardée - chaque session commence fraîche
+    // Juste réinitialiser le dernier mot révélé lors du changement de page
+    setLastRevealedWord(null);
+  }, [isReciting, currentPage]);
 
   // Keyboard navigation
   useEffect(() => {
@@ -1001,8 +1495,14 @@ function App() {
         </button>
       </div>
 
-      {/* Swiper */}
-      <div style={{ flex: 1, overflow: 'hidden' }}>
+      {/* Swiper - Page unique avec largeur max pour éviter les lignes trop étalées */}
+      <div style={{
+        flex: 1,
+        overflow: 'hidden',
+        display: 'flex',
+        justifyContent: 'center',
+        backgroundColor: isDark ? '#1A1A1A' : '#FDFBF7',
+      }}>
         <Swiper
           modules={[Virtual]}
           virtual
@@ -1014,12 +1514,22 @@ function App() {
           onSlideChange={(swiper) => setCurrentPage(swiper.activeIndex)}
           resistance={true}
           resistanceRatio={0}
-          style={{ height: '100%' }}
+          style={{
+            height: '100%',
+            maxWidth: MAX_PAGE_WIDTH,
+            width: '100%',
+          }}
         >
           {(PAGES as Page[]).map((page, index) => {
             // Déterminer si c'est la première page de la sourate
             const prevPage = index > 0 ? (PAGES as Page[])[index - 1] : null;
             const isFirstPageOfSurah = !prevPage || prevPage.sura.no !== page.sura.no;
+            // Mots révélés pour cette page spécifique
+            const pageRevealedWords = revealedWordsPerPage.get(index) || new Set<number>();
+            // Le dernier mot révélé n'est visible que sur la page courante
+            const pageLastRevealed = index === currentPage ? lastRevealedWord : null;
+            // Mode récitation actif = session active OU pausée (pour garder l'affichage)
+            const isInRecitationMode = sessionStatus === 'active' || sessionStatus === 'paused';
             return (
               <SwiperSlide key={index} virtualIndex={index}>
                 <QuranPageWeb
@@ -1028,6 +1538,10 @@ function App() {
                   isDark={isDark}
                   isFirstPageOfSurah={isFirstPageOfSurah}
                   config={activeConfig}
+                  isReciting={isInRecitationMode}
+                  revealedWords={pageRevealedWords}
+                  lastRevealedWord={pageLastRevealed}
+                  onWordClick={sessionStatus === 'active' ? revealWord : undefined}
                 />
               </SwiperSlide>
             );
@@ -1035,132 +1549,207 @@ function App() {
         </Swiper>
       </div>
 
-      {/* Bottom Bar - Modern style avec animations */}
+      {/* Bottom Bar - Boutons selon l'état de la session */}
       <div
         style={{
           display: 'flex',
           alignItems: 'center',
-          justifyContent: 'space-between',
+          justifyContent: 'center',
           padding: '10px 16px',
           backgroundColor: isDark ? '#1A1A1A' : '#FFFFFF',
           borderTop: `1px solid ${borderColor}`,
           height: 70,
           minHeight: 70,
           flexShrink: 0,
+          gap: 16,
         }}
       >
-        {/* Bouton Settings */}
-        <button
-          className="btn-modern btn-icon"
-          style={{
-            width: 44,
-            height: 44,
-            borderRadius: 12,
-            backgroundColor: isDark ? 'rgba(255,255,255,0.1)' : 'rgba(0,0,0,0.05)',
-            border: 'none',
-            cursor: 'pointer',
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-          }}
-          title="Paramètres"
-        >
-          <SettingsIcon size={22} color={isDark ? '#A0A0A0' : '#666'} />
-        </button>
+        {/* === ÉTAT REPOS (idle) === */}
+        {sessionStatus === 'idle' && (
+          <>
+            {/* Bouton New - Nouvelle session */}
+            <button
+              data-testid="new-session-button"
+              className="btn-modern btn-rec"
+              onClick={startNewSession}
+              style={{
+                width: 56,
+                height: 56,
+                borderRadius: 28,
+                background: `linear-gradient(135deg, ${activeConfig.accentColor} 0%, ${activeConfig.accentColorDark} 100%)`,
+                border: 'none',
+                cursor: 'pointer',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                boxShadow: `0 4px 15px ${hexToRgba(activeConfig.accentColor, 0.4)}`,
+              }}
+              title="جلسة جديدة"
+            >
+              <MicIcon size={26} color="#FFFFFF" />
+            </button>
 
-        {/* Centre: Contrôles de récitation */}
-        <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-          {/* Peek mot précédent */}
-          <button
-            className="btn-modern btn-icon"
-            style={{
-              width: 40,
-              height: 40,
-              borderRadius: 10,
-              backgroundColor: isDark ? 'rgba(255,255,255,0.1)' : 'rgba(0,0,0,0.05)',
-              border: 'none',
-              cursor: 'pointer',
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-            }}
-            title="Peek mot précédent"
-          >
-            <ChevronLeftIcon size={20} color={isDark ? '#A0A0A0' : '#666'} />
-          </button>
+            {/* Bouton History */}
+            <button
+              data-testid="history-button"
+              className="btn-modern"
+              onClick={loadHistory}
+              style={{
+                width: 48,
+                height: 48,
+                borderRadius: 24,
+                background: isDark ? 'rgba(255,255,255,0.1)' : 'rgba(0,0,0,0.05)',
+                border: `1.5px solid ${isDark ? '#555' : '#DDD'}`,
+                cursor: 'pointer',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+              }}
+              title="سجل التلاوات"
+            >
+              <HistoryIcon size={22} color={isDark ? '#AAA' : '#666'} />
+            </button>
+          </>
+        )}
 
-          {/* Toggle masquer/afficher */}
-          <button
-            className="btn-modern btn-icon"
-            onClick={toggleHiddenMode}
-            style={{
-              width: 40,
-              height: 40,
-              borderRadius: 10,
-              backgroundColor: hiddenMode ? activeConfig.accentColor : (isDark ? 'rgba(255,255,255,0.1)' : 'rgba(0,0,0,0.05)'),
-              border: hiddenMode ? `2px solid ${activeConfig.accentColorDark}` : 'none',
-              cursor: 'pointer',
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-            }}
-            title="Masquer/Afficher (H)"
-          >
-            {hiddenMode
-              ? <EyeOffIcon size={18} color="#FFFFFF" />
-              : <EyeIcon size={18} color={isDark ? '#A0A0A0' : '#666'} />
-            }
-          </button>
+        {/* === ÉTAT SESSION ACTIVE === */}
+        {sessionStatus === 'active' && (
+          <>
+            {/* Bouton Help - révéler le prochain mot */}
+            <button
+              data-testid="help-button"
+              className="btn-modern"
+              onClick={revealNextWithHelp}
+              style={{
+                width: 48,
+                height: 48,
+                borderRadius: 24,
+                background: `linear-gradient(135deg, ${activeConfig.accentColor} 0%, ${activeConfig.accentColorDark} 100%)`,
+                border: 'none',
+                cursor: 'pointer',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                boxShadow: `0 4px 12px ${hexToRgba(activeConfig.accentColor, 0.4)}`,
+              }}
+              title="مساعدة"
+            >
+              <HelpIcon size={24} color="#FFFFFF" />
+            </button>
 
-          {/* Peek mot suivant */}
-          <button
-            className="btn-modern btn-icon"
-            style={{
-              width: 40,
-              height: 40,
-              borderRadius: 10,
-              backgroundColor: isDark ? 'rgba(255,255,255,0.1)' : 'rgba(0,0,0,0.05)',
-              border: 'none',
-              cursor: 'pointer',
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-            }}
-            title="Peek mot suivant"
-          >
-            <ChevronRightIcon size={20} color={isDark ? '#A0A0A0' : '#666'} />
-          </button>
+            {/* Bouton Pause - suspendre et sauvegarder */}
+            <button
+              data-testid="pause-button"
+              className="btn-modern"
+              onClick={pauseCurrentSession}
+              style={{
+                width: 56,
+                height: 56,
+                borderRadius: 28,
+                background: 'linear-gradient(135deg, #F59E0B 0%, #D97706 100%)',
+                border: 'none',
+                cursor: 'pointer',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                boxShadow: '0 4px 15px rgba(245, 158, 11, 0.4)',
+              }}
+              title="إيقاف مؤقت"
+            >
+              <PauseIcon size={24} color="#FFFFFF" />
+            </button>
 
-          {/* Nom récitateur */}
-          <span style={{
-            fontSize: 13,
-            color: isDark ? '#A0A0A0' : '#666',
-            fontFamily: activeConfig.fontFamily,
-            marginLeft: 8,
-          }}>
-            عبد الباسط
-          </span>
-        </div>
+            {/* Bouton Stop - abandonner */}
+            <button
+              data-testid="stop-button"
+              className="btn-modern"
+              onClick={() => setStopConfirmVisible(true)}
+              style={{
+                width: 40,
+                height: 40,
+                borderRadius: 20,
+                background: isDark ? 'rgba(255,255,255,0.08)' : 'rgba(0,0,0,0.04)',
+                border: `1.5px solid ${isDark ? '#555' : '#DDD'}`,
+                cursor: 'pointer',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+              }}
+              title="إنهاء الجلسة"
+            >
+              <StopIcon size={18} color={isDark ? '#999' : '#888'} />
+            </button>
+          </>
+        )}
 
-        {/* Bouton Play principal avec animation pulse */}
-        <button
-          className="btn-modern btn-play"
-          style={{
-            width: 52,
-            height: 52,
-            borderRadius: 26,
-            background: `linear-gradient(135deg, ${activeConfig.accentColor} 0%, ${activeConfig.accentColorDark} 100%)`,
-            border: 'none',
-            cursor: 'pointer',
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            boxShadow: `0 4px 15px ${activeConfig.accentColor}66`,
-          }}
-          title="Lancer la récitation"
-        >
-          <PlayIcon size={24} color="#FFFFFF" />
-        </button>
+        {/* === ÉTAT SESSION EN PAUSE === */}
+        {sessionStatus === 'paused' && (
+          <>
+            {/* Bouton Resume - reprendre la session */}
+            <button
+              data-testid="resume-button"
+              className="btn-modern btn-rec"
+              onClick={() => resumeSession()}
+              style={{
+                width: 56,
+                height: 56,
+                borderRadius: 28,
+                background: `linear-gradient(135deg, ${activeConfig.accentColor} 0%, ${activeConfig.accentColorDark} 100%)`,
+                border: 'none',
+                cursor: 'pointer',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                boxShadow: `0 4px 15px ${hexToRgba(activeConfig.accentColor, 0.4)}`,
+              }}
+              title="استئناف"
+            >
+              <MicIcon size={26} color="#FFFFFF" />
+            </button>
+
+            {/* Bouton Stop - abandonner */}
+            <button
+              data-testid="stop-button"
+              className="btn-modern"
+              onClick={() => setStopConfirmVisible(true)}
+              style={{
+                width: 40,
+                height: 40,
+                borderRadius: 20,
+                background: isDark ? 'rgba(255,255,255,0.08)' : 'rgba(0,0,0,0.04)',
+                border: `1.5px solid ${isDark ? '#555' : '#DDD'}`,
+                cursor: 'pointer',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+              }}
+              title="إنهاء الجلسة"
+            >
+              <StopIcon size={18} color={isDark ? '#999' : '#888'} />
+            </button>
+
+            {/* Bouton History */}
+            <button
+              data-testid="history-button"
+              className="btn-modern"
+              onClick={loadHistory}
+              style={{
+                width: 48,
+                height: 48,
+                borderRadius: 24,
+                background: isDark ? 'rgba(255,255,255,0.1)' : 'rgba(0,0,0,0.05)',
+                border: `1.5px solid ${isDark ? '#555' : '#DDD'}`,
+                cursor: 'pointer',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+              }}
+              title="سجل التلاوات"
+            >
+              <HistoryIcon size={22} color={isDark ? '#AAA' : '#666'} />
+            </button>
+          </>
+        )}
       </div>
 
       {/* Menu Modal - Opens from RIGHT with sliding animation */}
@@ -1519,6 +2108,269 @@ function App() {
             }}>
               {activeConfig.name} • {activeConfig.totalPages} صفحة
             </span>
+          </div>
+        </div>
+      </div>
+
+      {/* Modal Confirmation Stop */}
+      <div
+        style={{
+          position: 'fixed',
+          top: 0,
+          left: 0,
+          right: 0,
+          bottom: 0,
+          backgroundColor: stopConfirmVisible ? 'rgba(0,0,0,0.5)' : 'rgba(0,0,0,0)',
+          display: 'flex',
+          justifyContent: 'center',
+          alignItems: 'center',
+          zIndex: 1002,
+          pointerEvents: stopConfirmVisible ? 'auto' : 'none',
+          transition: 'background-color 0.3s ease',
+        }}
+        onClick={() => setStopConfirmVisible(false)}
+      >
+        <div
+          style={{
+            width: 300,
+            maxWidth: '90vw',
+            backgroundColor: isDark ? '#1E1E1E' : '#FFFFFF',
+            borderRadius: 16,
+            boxShadow: stopConfirmVisible ? '0 10px 40px rgba(0,0,0,0.3)' : 'none',
+            transform: stopConfirmVisible ? 'scale(1)' : 'scale(0.9)',
+            opacity: stopConfirmVisible ? 1 : 0,
+            transition: 'transform 0.3s cubic-bezier(0.4, 0, 0.2, 1), opacity 0.3s ease',
+            overflow: 'hidden',
+            direction: 'rtl',
+          }}
+          onClick={(e) => e.stopPropagation()}
+        >
+          <div style={{ padding: '24px 20px', textAlign: 'center' }}>
+            <div style={{
+              fontSize: 18,
+              fontWeight: 600,
+              color: textColor,
+              marginBottom: 16,
+              fontFamily: activeConfig.fontFamily,
+            }}>
+              إنهاء جلسة التلاوة؟
+            </div>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+              {/* Option 1: Sauvegarder et arrêter */}
+              <button
+                className="btn-modern"
+                onClick={saveAndStopSession}
+                style={{
+                  width: '100%',
+                  padding: '14px 20px',
+                  borderRadius: 10,
+                  border: 'none',
+                  background: activeConfig.accentColor,
+                  color: '#FFFFFF',
+                  fontSize: 15,
+                  fontWeight: 600,
+                  cursor: 'pointer',
+                }}
+              >
+                حفظ للاستئناف لاحقاً
+              </button>
+              {/* Option 2: Arrêter sans sauvegarder */}
+              <button
+                className="btn-modern"
+                onClick={stopSession}
+                style={{
+                  width: '100%',
+                  padding: '14px 20px',
+                  borderRadius: 10,
+                  border: 'none',
+                  background: '#DC3545',
+                  color: '#FFFFFF',
+                  fontSize: 15,
+                  fontWeight: 600,
+                  cursor: 'pointer',
+                }}
+              >
+                إنهاء بدون حفظ
+              </button>
+              {/* Option 3: Annuler */}
+              <button
+                className="btn-modern"
+                onClick={() => setStopConfirmVisible(false)}
+                style={{
+                  width: '100%',
+                  padding: '12px 20px',
+                  borderRadius: 10,
+                  border: `1px solid ${borderColor}`,
+                  background: isDark ? 'rgba(255,255,255,0.1)' : 'rgba(0,0,0,0.05)',
+                  color: textColor,
+                  fontSize: 15,
+                  fontWeight: 500,
+                  cursor: 'pointer',
+                }}
+              >
+                إلغاء
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {/* Modal Historique des sessions */}
+      <div
+        style={{
+          position: 'fixed',
+          top: 0,
+          left: 0,
+          right: 0,
+          bottom: 0,
+          backgroundColor: historyVisible ? 'rgba(0,0,0,0.5)' : 'rgba(0,0,0,0)',
+          display: 'flex',
+          justifyContent: 'center',
+          alignItems: 'center',
+          zIndex: 1002,
+          pointerEvents: historyVisible ? 'auto' : 'none',
+          transition: 'background-color 0.3s ease',
+        }}
+        onClick={() => setHistoryVisible(false)}
+      >
+        <div
+          style={{
+            width: 350,
+            maxWidth: '95vw',
+            maxHeight: '80vh',
+            backgroundColor: isDark ? '#1E1E1E' : '#FFFFFF',
+            borderRadius: 16,
+            boxShadow: historyVisible ? '0 10px 40px rgba(0,0,0,0.3)' : 'none',
+            transform: historyVisible ? 'scale(1)' : 'scale(0.9)',
+            opacity: historyVisible ? 1 : 0,
+            transition: 'transform 0.3s cubic-bezier(0.4, 0, 0.2, 1), opacity 0.3s ease',
+            overflow: 'hidden',
+            display: 'flex',
+            flexDirection: 'column',
+            direction: 'rtl',
+          }}
+          onClick={(e) => e.stopPropagation()}
+        >
+          {/* Header */}
+          <div style={{
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'space-between',
+            padding: '16px 20px',
+            borderBottom: `1px solid ${borderColor}`,
+            background: isDark
+              ? `linear-gradient(135deg, ${hexToRgba(activeConfig.accentColor, 0.1)} 0%, transparent 100%)`
+              : `linear-gradient(135deg, ${hexToRgba(activeConfig.accentColor, 0.08)} 0%, transparent 100%)`,
+          }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+              <HistoryIcon size={22} color={activeConfig.accentColor} />
+              <span style={{ fontSize: 18, color: activeConfig.accentColor, fontWeight: 600 }}>سجل التلاوات</span>
+            </div>
+            <button
+              className="btn-modern btn-icon"
+              onClick={() => setHistoryVisible(false)}
+              style={{
+                width: 36,
+                height: 36,
+                borderRadius: 10,
+                border: 'none',
+                background: isDark ? 'rgba(255,255,255,0.1)' : 'rgba(0,0,0,0.05)',
+                cursor: 'pointer',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+              }}
+            >
+              <XIcon size={18} color={textColor} />
+            </button>
+          </div>
+
+          {/* Liste des sessions */}
+          <div style={{ flex: 1, overflow: 'auto', padding: '12px' }}>
+            {savedSessions.length === 0 ? (
+              <div style={{
+                textAlign: 'center',
+                padding: '40px 20px',
+                color: isDark ? '#666' : '#999',
+              }}>
+                لا توجد جلسات محفوظة
+              </div>
+            ) : (
+              savedSessions.map((session) => (
+                <div
+                  key={session.id}
+                  style={{
+                    padding: '12px 16px',
+                    marginBottom: 8,
+                    borderRadius: 12,
+                    backgroundColor: isDark ? 'rgba(255,255,255,0.05)' : 'rgba(0,0,0,0.02)',
+                    border: `1px solid ${isDark ? '#333' : '#EEE'}`,
+                  }}
+                >
+                  <div style={{ display: 'flex', alignItems: 'center', marginBottom: 8 }}>
+                    <BookOpenIcon size={18} color={activeConfig.accentColor} />
+                    <span style={{
+                      marginRight: 8,
+                      fontSize: 16,
+                      fontWeight: 600,
+                      color: textColor,
+                      fontFamily: activeConfig.fontFamily,
+                    }}>
+                      الصفحة {session.currentPage + 1} - {session.surahName}
+                    </span>
+                  </div>
+                  <div style={{
+                    fontSize: 12,
+                    color: isDark ? '#A0A0A0' : '#666',
+                    marginBottom: 8,
+                  }}>
+                    الجزء {session.juz} | الحزب {session.hizb} | الثمن {session.thoumn}
+                  </div>
+                  <div style={{
+                    fontSize: 11,
+                    color: isDark ? '#666' : '#999',
+                    marginBottom: 12,
+                  }}>
+                    {session.totalWordsRevealed} كلمة • {new Date(session.updatedAt).toLocaleDateString('ar-EG')}
+                  </div>
+                  <div style={{ display: 'flex', gap: 8 }}>
+                    <button
+                      className="btn-modern"
+                      onClick={() => resumeSession(session)}
+                      style={{
+                        flex: 1,
+                        padding: '8px 12px',
+                        borderRadius: 8,
+                        border: 'none',
+                        background: `linear-gradient(135deg, ${activeConfig.accentColor} 0%, ${activeConfig.accentColorDark} 100%)`,
+                        color: '#FFFFFF',
+                        fontSize: 13,
+                        fontWeight: 600,
+                        cursor: 'pointer',
+                      }}
+                    >
+                      استئناف
+                    </button>
+                    <button
+                      className="btn-modern"
+                      onClick={() => deleteSessionFromHistory(session.id)}
+                      style={{
+                        padding: '8px 12px',
+                        borderRadius: 8,
+                        border: `1px solid ${isDark ? '#555' : '#DDD'}`,
+                        background: 'transparent',
+                        cursor: 'pointer',
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                      }}
+                    >
+                      <TrashIcon size={16} color={isDark ? '#999' : '#666'} />
+                    </button>
+                  </div>
+                </div>
+              ))
+            )}
           </div>
         </div>
       </div>
